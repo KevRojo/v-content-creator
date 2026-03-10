@@ -1163,7 +1163,7 @@ def mix_audio_sfx(main_audio_path, sfx_cues):
         idx = i + 1
         delay_ms = int(cue['seconds'] * 1000)
         # Bajar el volumen de los SFX para no ahogar la voz y retrasarlos al segundo exacto
-        filter_complex += f"[{idx}:a]volume=0.4,adelay={delay_ms}|{delay_ms}[sfx{idx}]; "
+        filter_complex += f"[{idx}:a]volume=0.2,adelay={delay_ms}|{delay_ms}[sfx{idx}]; "
         mix_inputs += f"[sfx{idx}]"
         
     filter_complex += f"{mix_inputs}amix=inputs={len(sfx_cues)+1}:duration=first:dropout_transition=0:normalize=0[aout]"
