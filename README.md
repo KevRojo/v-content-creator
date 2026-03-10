@@ -94,6 +94,8 @@ python vcontent_creator.py --count 3 --niche venganza --duration 5 --voice Fenri
 
 ### 5. GUI Mode (optional)
 
+![V-Content Creator GUI](gui.png)
+
 ```bash
 pip install PyQt5
 python gui.py
