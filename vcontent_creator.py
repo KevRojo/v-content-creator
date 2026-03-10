@@ -22,6 +22,7 @@ import urllib.request
 import shutil
 import re
 from datetime import datetime
+import glob
 import litellm
 
 # Fix Windows console encoding for emoji
@@ -122,6 +123,20 @@ else:
 CHANNEL_NAME = os.getenv("CHANNEL_NAME", "My Channel")
 VIDEO_PREFIX = os.getenv("VIDEO_PREFIX", "video")
 DEFAULT_TAGS = os.getenv("DEFAULT_TAGS", "stories,narration,storytime").split(",")
+
+# SFX Configuration
+SOUNDS_DIR = os.path.join(PROJECT_DIR, "sounds")
+if not os.path.exists(SOUNDS_DIR):
+    os.makedirs(SOUNDS_DIR)
+
+# Get available sounds dynamically
+def get_available_sounds():
+    files = []
+    if os.path.exists(SOUNDS_DIR):
+        for f in os.listdir(SOUNDS_DIR):
+            if f.endswith(('.mp3', '.wav', '.ogg')):
+                files.append(os.path.splitext(f)[0])
+    return files
 
 
 # Modelo de texto por defecto dinámico
@@ -348,6 +363,31 @@ _ip_adapter_ok = False
 # LITELLM TEXT API
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def get_system_prompt():
+    available_sfx = get_available_sounds()
+    sfx_instruction = ""
+    if available_sfx:
+        sfx_list = ", ".join(f"'{s}'" for s in available_sfx)
+        sfx_instruction = f"""
+También eres el Diseñador de Sonido (Foley Artist). Tienes acceso a los siguientes efectos de sonido: {sfx_list}.
+Debes decidir en qué momento exacto de la historia debe sonar cada efecto para maximizar la inmersión.
+
+INSTRUCCIÓN VITAL: Tu respuesta DEBE tener TRES secciones marcadas exactamente con estas etiquetas obligatorias:
+[STORY]
+[IMAGE_PROMPTS]
+[SOUND_EFFECTS]
+"""
+    else:
+        sfx_instruction = """
+INSTRUCCIÓN VITAL: Tu respuesta DEBE tener DOS secciones marcadas exactamente con estas etiquetas obligatorias:
+[STORY]
+[IMAGE_PROMPTS]
+"""
+
+    return f"""Eres un escritor de relatos creativo y experto en retención visual (Cinematógrafo y Guionista).
+Sigues instrucciones de formato al pie de la letra sin inventar comillas extra.
+{sfx_instruction}"""
+
 def generate_text_litellm(prompt, model=TEXT_MODEL, max_tokens=4000, temperature=0.95):
     """
     Llama a cualquier modelo soportado por LiteLLM (OpenAI, Gemini, DeepSeek, Claude, etc).
@@ -358,7 +398,7 @@ def generate_text_litellm(prompt, model=TEXT_MODEL, max_tokens=4000, temperature
         response = litellm.completion(
             model=model,
             messages=[
-                {"role": "system", "content": "Eres un escritor de relatos creativo y cinematográfico. Sigues instrucciones de formato al pie de la letra."},
+                {"role": "system", "content": get_system_prompt()},
                 {"role": "user", "content": prompt}
             ],
             temperature=temperature,
@@ -464,6 +504,11 @@ IMG2 0:12: [prompt detallado de la escena de desarrollo, distinta composición]
 IMG3 0:25: [prompt detallado de la escena del clímax]
 IMG4 0:40: [prompt detallado de la escena de cierre/twist]
 
+===SFX 1===
+0:12: rain
+0:25: heartbeat
+0:40: door_knocking
+
 EMPIEZA DIRECTAMENTE con ===HISTORIA 1===, sin texto previo ni explicaciones."""
 
     # Seleccionar API según TEXT_MODEL
@@ -493,10 +538,11 @@ EMPIEZA DIRECTAMENTE con ===HISTORIA 1===, sin texto previo ni explicaciones."""
     for block in historia_blocks:
         if len(stories) >= count:
             break
-        # Separar historia de imágenes (también cortar SFX si existe)
+        # Separar historia, imágenes y SFX
         parts = re.split(r'(?:#+\s*)?===\s*(?:IM[AÁ]GENES|SFX)\s*\d+\s*===', block, flags=re.IGNORECASE)
         story_part = parts[0].strip()
         images_part = parts[1].strip() if len(parts) > 1 else ""
+        sfx_part = parts[2].strip() if len(parts) > 2 else ""
 
         lines = [l.strip() for l in story_part.split('\n') if l.strip()]
         if len(lines) < 2:
@@ -564,6 +610,23 @@ EMPIEZA DIRECTAMENTE con ===HISTORIA 1===, sin texto previo ni explicaciones."""
                 if len(p) > 15:
                     img_data.append({'prompt': p, 'timestamp': None, 'seconds': None})
 
+        # Extraer SFX cues
+        sfx_cues = []
+        if sfx_part:
+            sfx_pattern = r'(\d+:\d+)\s*:\s*([a-zA-Z0-9_]+)'
+            for m in re.finditer(sfx_pattern, sfx_part):
+                ts = m.group(1).strip()
+                sfx_name = m.group(2).strip()
+                # Verificar si el archivo existe (tolerancia con extensiones)
+                for ext in ['.mp3', '.wav']:
+                    if os.path.exists(os.path.join(SOUNDS_DIR, f"{sfx_name}{ext}")):
+                        sfx_cues.append({
+                            'timestamp': ts,
+                            'seconds': parse_timestamp_to_seconds(ts),
+                            'file': f"{sfx_name}{ext}"
+                        })
+                        break
+
         if declared_count:
             print(f"  🖼️  Kimi eligió {declared_count} imágenes, se encontraron {len(img_data)} prompts")
             for idx, img in enumerate(img_data[:5], 1):
@@ -577,6 +640,7 @@ EMPIEZA DIRECTAMENTE con ===HISTORIA 1===, sin texto previo ni explicaciones."""
             'niche_id': niche_id,
             'niche': niche,
             'image_prompts': img_data,
+            'sfx_cues': sfx_cues,
             'has_timestamps': any(img['timestamp'] for img in img_data),
             'chat_url_for_images': chat_url_for_images
         })
@@ -1047,19 +1111,59 @@ def generate_image_sd(prompt, output_path, reference_image=None):
         traceback.print_exc()
         return False
 
-def parse_timestamp_to_seconds(timestamp_str):
-    """Convierte '0:25' o '1:30' a segundos (25, 90)"""
-    try:
-        parts = timestamp_str.strip().split(':')
-        if len(parts) == 2:
-            minutes = int(parts[0])
-            seconds = int(parts[1])
-            return minutes * 60 + seconds
-        elif len(parts) == 1:
-            return int(parts[0])
     except:
         pass
     return None
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AUDIO MIXING (SFX)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def mix_audio_sfx(main_audio_path, sfx_cues):
+    """
+    Mezcla el audio principal (voz) con los efectos de sonido (SFX) generados por el LLM.
+    Devuelve la ruta del nuevo archivo (o el original si ocurre un error).
+    """
+    if not sfx_cues:
+        return main_audio_path
+        
+    print(f"  🎵 Añadiendo {len(sfx_cues)} efectos de sonido (SFX) cinemáticos...")
+    output_path = main_audio_path.replace(".mp3", "_mixed.mp3").replace(".wav", "_mixed.wav")
+    
+    cmd = [FFMPEG_BIN, "-y", "-i", main_audio_path]
+    
+    # 1. Añadir inputs
+    for cue in sfx_cues:
+        sfx_path = os.path.join(SOUNDS_DIR, cue['file'])
+        cmd.extend(["-i", sfx_path])
+        
+    # 2. Construir Filter Complex
+    filter_complex = ""
+    mix_inputs = "[0:a]"
+    
+    for i, cue in enumerate(sfx_cues):
+        idx = i + 1
+        delay_ms = int(cue['seconds'] * 1000)
+        # Bajar el volumen de los SFX para no ahogar la voz y retrasarlos al segundo exacto
+        filter_complex += f"[{idx}:a]volume=0.4,adelay={delay_ms}|{delay_ms}[sfx{idx}]; "
+        mix_inputs += f"[sfx{idx}]"
+        
+    filter_complex += f"{mix_inputs}amix=inputs={len(sfx_cues)+1}:duration=first:dropout_transition=0:normalize=0[aout]"
+    
+    cmd.extend([
+        "-filter_complex", filter_complex,
+        "-map", "[aout]",
+        "-c:a", "libmp3lame", "-q:a", "2",
+        output_path
+    ])
+    
+    try:
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        return output_path
+    except Exception as e:
+        print(f"    ⚠️ Error mezclando SFX: {e}")
+        return main_audio_path
+
 
 def create_video(images_dir, audio_file, output_file, subs_file=None, image_timestamps=None):
     """
@@ -1392,7 +1496,14 @@ def create_creepypasta(num_stories=1, context=None, duration_min=None, niche_nam
         if not generate_audio(story_data['story'], audio_file):
             print("⚠️ Saltando historia (error audio)")
             continue
-        print("✅ Audio generado")
+        print("✅ Voz generada")
+        
+        # Audio Mix (SFX)
+        if story_data.get('sfx_cues'):
+            mixed_audio = mix_audio_sfx(audio_file, story_data['sfx_cues'])
+            if mixed_audio != audio_file:
+                audio_file = mixed_audio # Usar el audio mezclado para el video
+                print("✅ Efectos de sonido (SFX) integrados")
         
         # SFX desactivado temporalmente (se reemplazará con ElevenLabs)
         # print("  🔍 Analizando texto para sonidos de fondo...")
