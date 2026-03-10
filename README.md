@@ -146,6 +146,27 @@ playwright install chromium
 python vcontent_creator.py --gemini-images
 ```
 
+## 📤 Auto-Uploader & Metadata
+
+Every time a video is generated, V-Content Creator builds a comprehensive **Metadata JSON** file alongside the video (e.g. `video_info.json`). This file contains the title, optimized description, SEO tags, privacy settings, and even tracking of which platforms it has been uploaded to.
+
+```json
+{
+  "youtube_title": "Lavanda #Shorts",
+  "description": "🎧 \"No abro la puerta de la calle desde el lunes pasado...\"",
+  "tags": ["narración", "terror psicológico", "youtube shorts"]
+}
+```
+
+Included in the repo is **`uploader.py`**, an interactive CLI tool that reads these metadata files and uses **Playwright** to automatically upload your videos to **YouTube Studio** and **TikTok**.
+
+![Uploader CLI](uploader.png)
+
+```bash
+# Launch the interactive uploader menu
+python uploader.py
+```
+
 ## ⚙️ CLI Reference
 
 | Flag | Description |
@@ -168,6 +189,7 @@ python vcontent_creator.py --gemini-images
 ```
 v-content-creator/
 ├── vcontent_creator.py    # Main engine (text → audio → images → video)
+├── uploader.py            # Auto-uploader for YouTube & TikTok (Playwright)
 ├── gui.py                 # PyQt5 GUI (optional)
 ├── .env                   # Your API keys (not tracked by git)
 ├── .env.example           # Template for API keys
