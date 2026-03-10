@@ -20,6 +20,22 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QFont, QColor, QTextCursor, QIcon
+from dotenv import load_dotenv
+
+# Load env variables globally for GUI
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+load_dotenv(env_path)
+
+# Determine available API keys
+AVAILABLE_KEYS = {
+    "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY"),
+    "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
+    "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY"),
+    "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
+    "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
+    "MOONSHOT_API_KEY": os.getenv("MOONSHOT_API_KEY")
+}
+AVAILABLE_KEYS = {k: v for k, v in AVAILABLE_KEYS.items() if v}
 
 # Fix encoding for Windows
 if hasattr(sys.stdout, 'reconfigure'):
@@ -338,9 +354,38 @@ class ViralFactoryGUI(QMainWindow):
         # Model
         prod_grid.addWidget(QLabel("Modelo texto:"), 0, 0)
         self.model_combo = QComboBox()
-        self.model_combo.addItem("✨ Gemini (gemini-3-flash)", "gemini")
-        self.model_combo.addItem("🌙 Kimi (moonshot)", "kimi")
+        
+        # Poblar dinámicamente según API Keys
+        if AVAILABLE_KEYS:
+            if "GEMINI_API_KEY" in AVAILABLE_KEYS:
+                self.model_combo.addItem("✨ Gemini 2.5 Flash", "gemini/gemini-2.5-flash")
+                self.model_combo.addItem("✨ Gemini Pro", "gemini/gemini-pro")
+            if "OPENAI_API_KEY" in AVAILABLE_KEYS:
+                self.model_combo.addItem("🤖 OpenAI GPT-4o", "openai/gpt-4o")
+                self.model_combo.addItem("🤖 OpenAI GPT-4o Mini", "openai/gpt-4o-mini")
+            if "DEEPSEEK_API_KEY" in AVAILABLE_KEYS:
+                self.model_combo.addItem("🐳 DeepSeek Chat", "deepseek/deepseek-chat")
+            if "ANTHROPIC_API_KEY" in AVAILABLE_KEYS:
+                self.model_combo.addItem("🧠 Claude 3.5 Sonnet", "anthropic/claude-3-5-sonnet-20240620")
+            if "MOONSHOT_API_KEY" in AVAILABLE_KEYS:
+                self.model_combo.addItem("🌙 Moonshot Kimi", "kimi")
+            if "GROQ_API_KEY" in AVAILABLE_KEYS:
+                self.model_combo.addItem("⚡ Groq LLaMA3 70B", "groq/llama3-70b-8192")
+            
+            self.model_combo.addItem("⚙️ Otro (Escribir litellm ID)", "custom")
+        else:
+            self.model_combo.addItem("❌ Sin API Keys (Usa Gemini Web)", "gemini_web")
+            self.model_combo.setEnabled(False)
+
         prod_grid.addWidget(self.model_combo, 0, 1)
+
+        # Custom text model input (hidden by default)
+        self.custom_model_input = QLineEdit()
+        self.custom_model_input.setPlaceholderText("Ej: openai/gpt-4")
+        self.custom_model_input.setVisible(False)
+        prod_grid.addWidget(self.custom_model_input, 1, 0, 1, 2)
+        
+        self.model_combo.currentTextChanged.connect(self.on_model_changed)
 
         # Voice
         prod_grid.addWidget(QLabel("Voz TTS:"), 0, 2)
@@ -352,29 +397,34 @@ class ViralFactoryGUI(QMainWindow):
         prod_grid.addWidget(self.voice_combo, 0, 3)
 
         # Quality
-        prod_grid.addWidget(QLabel("Calidad:"), 1, 0)
+        prod_grid.addWidget(QLabel("Calidad:"), 2, 0)
         self.quality_combo = QComboBox()
         self.quality_combo.addItem("🔥 High", "high")
         self.quality_combo.addItem("⚡ Medium", "medium")
         self.quality_combo.addItem("💨 Low", "low")
         self.quality_combo.addItem("🏎️ Minimal", "minimal")
-        prod_grid.addWidget(self.quality_combo, 1, 1)
+        prod_grid.addWidget(self.quality_combo, 2, 1)
 
         # Short mode
         self.short_check = QCheckBox("📱 Modo Short (9:16)")
-        prod_grid.addWidget(self.short_check, 1, 2)
+        prod_grid.addWidget(self.short_check, 2, 2)
 
         # ElevenLabs TTS
         self.eleven_check = QCheckBox("🔊 ElevenLabs TTS")
-        prod_grid.addWidget(self.eleven_check, 1, 3)
+        prod_grid.addWidget(self.eleven_check, 2, 3)
 
-        # Gemini Images (row 2)
+        # Gemini Images (row 3)
         self.gemini_images_check = QCheckBox("🖼️ Gemini Images")
-        prod_grid.addWidget(self.gemini_images_check, 2, 2)
+        prod_grid.addWidget(self.gemini_images_check, 3, 2)
 
-        # Gemini Web Story (row 2)
+        # Gemini Web Story (row 3)
         self.gemini_web_story_check = QCheckBox("🧠 Gemini Web History")
-        prod_grid.addWidget(self.gemini_web_story_check, 2, 3)
+        prod_grid.addWidget(self.gemini_web_story_check, 3, 3)
+        
+        # Auto-check if no keys
+        if not AVAILABLE_KEYS:
+            self.gemini_web_story_check.setChecked(True)
+            self.gemini_web_story_check.setEnabled(False)
 
         config_layout.addWidget(prod_group)
 
@@ -433,14 +483,30 @@ class ViralFactoryGUI(QMainWindow):
         splitter.addWidget(console_widget)
         splitter.setSizes([400, 520])
 
+    def on_model_changed(self, text):
+        if self.model_combo.currentData() == "custom":
+            self.custom_model_input.setVisible(True)
+        else:
+            self.custom_model_input.setVisible(False)
+
     def start_generation(self):
         # Recoger parámetros
+        selected_model = self.model_combo.currentData()
+        if selected_model == "custom":
+            selected_model = self.custom_model_input.text().strip()
+            if not selected_model:
+                self.log("❌ Debes escribir el modelo de LiteLLM.")
+                return
+        elif selected_model == "gemini_web":
+            # Si no hay keys y el combobox esta disable, se corre gemini_web checkeado
+            pass
+
         params = {
             'niche': self.niche_combo.currentData(),
             'context': self.context_input.text().strip(),
             'count': self.count_spin.value(),
             'duration': self.duration_spin.value() if self.duration_spin.value() > 0 else None,
-            'model': self.model_combo.currentData(),
+            'model': selected_model,
             'voice': self.voice_combo.currentData(),
             'quality': self.quality_combo.currentData(),
             'short': self.short_check.isChecked(),

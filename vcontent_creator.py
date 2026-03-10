@@ -48,12 +48,75 @@ ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "pNInz6obpgDQGcFmaJgB")
 MOONSHOT_API_KEY = os.getenv("MOONSHOT_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-# Validate required keys
-if not GEMINI_API_KEY and not MOONSHOT_API_KEY and not os.getenv("OPENAI_API_KEY") and not os.getenv("DEEPSEEK_API_KEY") and not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("GROQ_API_KEY"):
-    print("❌ ERROR: No API keys configured!")
-    print("   Copy .env.example to .env and add your API keys.")
-    print("   You need at least one text provider key (GEMINI, OPENAI, DEEPSEEK, etc.).")
-    sys.exit(1)
+# ── Autodetect API Keys from .env ──
+available_keys = {
+    "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY"),
+    "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
+    "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY"),
+    "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
+    "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
+    "MOONSHOT_API_KEY": os.getenv("MOONSHOT_API_KEY")
+}
+
+# Delete empty ones
+available_keys = {k: v for k, v in available_keys.items() if v}
+
+# Validate required keys / Interactive Onboarding
+if not available_keys:
+    print("\n" + "="*60)
+    print("👋 ¡BIENVENIDO A V-CONTENT CREATOR!")
+    print("="*60)
+    print("Parece que es tu primera vez y no tienes ninguna API Key configurada.")
+    print("LiteLLM soporta +100 modelos diferentes. Selecciona uno para empezar:\n")
+    print(" Ejemplos recomendados:")
+    print("   • gemini/gemini-2.5-flash")
+    print("   • openai/gpt-4o")
+    print("   • deepseek/deepseek-chat")
+    print("   • anthropic/claude-3-5-sonnet-20240620\n")
+    
+    user_model = input("👉 ¿Qué modelo quieres usar? (Copia un ejemplo o escribe el tuyo): ").strip()
+    if not user_model:
+        print("❌ Operación cancelada. El script requiere un modelo de texto.")
+        sys.exit(1)
+        
+    provider = user_model.split('/')[0].upper() if '/' in user_model else user_model.upper()
+    api_key_name = f"{provider}_API_KEY"
+    
+    user_key = input(f"🔑 Pega tu {api_key_name} (se guardará de forma segura en .env): ").strip()
+    if not user_key:
+        print("❌ Operación cancelada. Se necesita una API Key para funcionar.")
+        sys.exit(1)
+        
+    # Guardar en .env
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    try:
+        with open(env_path, "a") as f:
+            f.write(f"\n{api_key_name}={user_key}\n")
+        print(f"\n✅ ¡Éxito! Tu {api_key_name} ha sido guardada.")
+        
+        # Load immediately
+        os.environ[api_key_name] = user_key
+        available_keys[api_key_name] = user_key
+    except Exception as e:
+        print(f"⚠️ No se pudo guardar en .env: {e}")
+        
+    # Forzar el modelo por defecto en base a lo que eligió el usuario
+    DEFAULT_TEXT_MODEL = user_model
+else:
+    # Auto-pick the first available model based on keys
+    first_key = list(available_keys.keys())[0]
+    if first_key == "OPENAI_API_KEY":
+        DEFAULT_TEXT_MODEL = "openai/gpt-4o"
+    elif first_key == "DEEPSEEK_API_KEY":
+        DEFAULT_TEXT_MODEL = "deepseek/deepseek-chat"
+    elif first_key == "ANTHROPIC_API_KEY":
+        DEFAULT_TEXT_MODEL = "anthropic/claude-3-5-sonnet-20240620"
+    elif first_key == "MOONSHOT_API_KEY":
+        DEFAULT_TEXT_MODEL = "kimi"
+    elif first_key == "GROQ_API_KEY":
+        DEFAULT_TEXT_MODEL = "groq/llama3-70b-8192"
+    else:  # GEMINI is fallback
+        DEFAULT_TEXT_MODEL = "gemini/gemini-pro"
 
 # Channel Configuration (customize in .env)
 CHANNEL_NAME = os.getenv("CHANNEL_NAME", "My Channel")
@@ -61,8 +124,8 @@ VIDEO_PREFIX = os.getenv("VIDEO_PREFIX", "video")
 DEFAULT_TAGS = os.getenv("DEFAULT_TAGS", "stories,narration,storytime").split(",")
 
 
-# Modelo de texto por defecto (usando sintaxis LiteLLM, ej: gemini/gemini-2.5-flash)
-TEXT_MODEL = "gemini/gemini-pro"
+# Modelo de texto por defecto dinámico
+TEXT_MODEL = DEFAULT_TEXT_MODEL
 
 # Motor TTS por defecto (gemini o eleven)
 TTS_ENGINE = "gemini"  # Opciones: "gemini" o "kimi"
@@ -1530,7 +1593,7 @@ def main():
     parser.add_argument("--voice", type=str, default=None, help="Voz TTS (Charon, Fenrir, Kore, Orus)")
     parser.add_argument("--quality", type=str, default="high", choices=["high", "medium", "low", "minimal"])
     parser.add_argument("--short", action="store_true", help="Modo Short (9:16 vertical, ≤60s)")
-    parser.add_argument("--model", type=str, default="gemini/gemini-2.5-flash",
+    parser.add_argument("--model", type=str, default=DEFAULT_TEXT_MODEL,
                         help="Modelo de texto LiteLLM (ej: gemini/gemini-2.5-flash, openai/gpt-4o, deepseek/deepseek-chat)")
     parser.add_argument("--niche", type=str, default=None,
                         help=f"Nicho de contenido. Opciones: {niche_list}. Si no se especifica, se elige uno al azar.")
