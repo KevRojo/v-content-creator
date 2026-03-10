@@ -1163,7 +1163,7 @@ def mix_audio_sfx(main_audio_path, sfx_cues):
         idx = i + 1
         delay_ms = int(cue['seconds'] * 1000)
         # Bajar el volumen de los SFX para no ahogar la voz y retrasarlos al segundo exacto
-        filter_complex += f"[{idx}:a]volume=0.7,adelay={delay_ms}|{delay_ms}[sfx{idx}]; "
+        filter_complex += f"[{idx}:a]volume=0.4,adelay={delay_ms}|{delay_ms}[sfx{idx}]; "
         mix_inputs += f"[sfx{idx}]"
         
     filter_complex += f"{mix_inputs}amix=inputs={len(sfx_cues)+1}:duration=first:dropout_transition=0:normalize=0[aout]"
@@ -1461,9 +1461,21 @@ def create_creepypasta(num_stories=1, context=None, duration_min=None, niche_nam
 
     print("=" * 60)
     print(f"🎬 VIRAL CONTENT FACTORY — {CHANNEL_NAME}")
-    model_label = f"Gemini ({GEMINI_TEXT_MODEL})" if TEXT_MODEL == "gemini" else "Moonshot (Kimi)"
+    # Dynamic labels based on actual configuration
+    if TEXT_MODEL == "gemini_web":
+        model_label = "Gemini Web (Playwright)"
+    else:
+        model_label = TEXT_MODEL
     print(f"   📝 Texto: {model_label}")
-    print(f"   🎙️ Voz: Gemini TTS — {GEMINI_TTS_VOICE}")
+    
+    if TTS_ENGINE == "eleven":
+        tts_label = f"ElevenLabs — {ELEVEN_VOICE_ID[:8]}..."
+    elif TTS_ENGINE == "edge":
+        tts_label = "Edge TTS (Gratis)"
+    else:
+        tts_label = f"Gemini TTS — {GEMINI_TTS_VOICE}"
+    print(f"   🎙️ Voz: {tts_label}")
+    
     img_label = "Gemini Web (Nano Banana)" if IMAGE_ENGINE == "gemini_web" else "SDXL Local"
     print(f"   🎨 Imágenes: {img_label}")
     if niche_name:
