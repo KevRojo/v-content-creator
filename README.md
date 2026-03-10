@@ -4,9 +4,17 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.9+-blue" alt="Python">
+  <img src="https://img.shields.io/badge/cost-100%25_FREE-success" alt="Cost: Free">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey" alt="Platform">
 </p>
+
+## 💸 The "Zero-Cost" Philosophy
+
+This tool was built to battle the paywalls of modern AI content creation. While it supports premium APIs, **the recommended workflow is 100% free** and doesn't even require an expensive GPU!
+
+By using the **Gemini Web** capabilities, the script uses Playwright to open a headless browser, log into your Google account (only needed once), and generate both the **Stories** and **Images** directly through the Gemini web chat.
+
+*No API tokens, no per-generation costs, no RTX 4090 needed. You can run this on a Raspberry Pi if you want. We will keep improving this to democratize content creation.*
 
 ## ✨ What it does
 
@@ -125,9 +133,12 @@ stable-diffusion-webui-master/models/Stable-diffusion/
 | Juggernaut XL v11 | Multi-purpose premium | [CivitAI](https://civitai.com/models/133005/juggernaut-xl) |
 | SDXL Base 1.0 | Official base | [HuggingFace](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0) |
 
-### Option B: Gemini Web (no GPU needed)
+### Option B: Gemini Web (No GPU needed, 100% Free!)
 
-Uses your Gemini Premium subscription via browser automation:
+**This is the recommended, zero-cost method.** It uses browser automation via Playwright to generate images directly in the Gemini Web interface (using Imagen 3 under the hood). 
+
+- You only need to log in to your Google Account the **first time**. The script saves your session state.
+- Generates high-quality images without needing any local GPU horsepower.
 
 ```bash
 pip install playwright
