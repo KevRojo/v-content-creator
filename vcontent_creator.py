@@ -836,13 +836,43 @@ def _crossfade_pcm(pcm_a, pcm_b, fade_ms=80):
     return pcm_a[:-min_bytes] + struct.pack(f'<{fade_samples}h', *mixed) + pcm_b[min_bytes:]
 
 def generate_audio(story_text, output_path):
-    """Genera audio usando el motor TTS seleccionado (gemini o eleven)."""
+    """Genera audio usando el motor TTS seleccionado, con fallback a Edge TTS."""
     text = story_text.replace('[', '').replace(']', '').replace('*', '').replace('"', '')
     
-    if TTS_ENGINE == "eleven":
-        return _generate_audio_elevenlabs(text, output_path)
-    else:
-        return _generate_audio_gemini(text, output_path)
+    success = False
+    if TTS_ENGINE == "eleven" and ELEVENLABS_API_KEY:
+        success = _generate_audio_elevenlabs(text, output_path)
+    elif GEMINI_API_KEY:
+        success = _generate_audio_gemini(text, output_path)
+        
+    if not success:
+        print("  ⚠️ Usando Edge TTS como fallback...")
+        success = _generate_audio_edge_tts(text, output_path)
+        
+    return success
+
+def _generate_audio_edge_tts(text, output_path):
+    """Genera audio con Edge TTS (gratuito, no requiere API key)."""
+    # Voces en español recomendadas: es-ES-AlvaroNeural o es-MX-JorgeNeural
+    voice = "es-ES-AlvaroNeural" if "españa" in CHANNEL_NAME.lower() else "es-MX-JorgeNeural"
+    
+    try:
+        import edge_tts
+        import asyncio
+        
+        async def _main():
+            communicate = edge_tts.Communicate(text, voice)
+            await communicate.save(output_path)
+            
+        asyncio.run(_main())
+        print("  ✅ Edge TTS: Audio generado con éxito")
+        return True
+    except ImportError:
+        print("  ❌ ERROR: edge-tts no está instalado. Ejecuta: pip install edge-tts")
+        return False
+    except Exception as e:
+        print(f"  ❌ Edge TTS error: {e}")
+        return False
 
 def _generate_audio_elevenlabs(text, output_path):
     """Genera audio con ElevenLabs REST API (streaming)."""

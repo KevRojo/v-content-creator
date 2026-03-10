@@ -17,7 +17,7 @@ Idea → AI Story → AI Voice → AI Images → Subtitles → Final Video
 V-Content Creator automates the **entire** video production pipeline:
 
 1. **📝 Story Generation** — AI writes viral stories with hooks, escalation, and twists (Gemini or Moonshot/Kimi)
-2. **🎙️ Voice Narration** — Natural TTS voice (Gemini TTS or ElevenLabs)
+2. **🎙️ Voice Narration** — Natural TTS voice (Gemini TTS or ElevenLabs). **Includes a free 100% fallback to Edge TTS** (no API key needed!)
 3. **🖼️ Scene Images** — AI-generated images synced to the narration (SDXL local GPU or Gemini Web)
 4. **📝 Subtitles** — Automatic transcription with faster-whisper
 5. **🎬 Video Assembly** — FFmpeg with zoompan effects, per-image timing from AI timestamps
