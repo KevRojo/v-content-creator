@@ -44,7 +44,7 @@ PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # API Keys (loaded from .env file — see .env.example)
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
-ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "pNInz6obpgDQGcFmaJgB")
+ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "qEWvRpD5bptlI1hEomR7")  # "Adam" voice
 
 MOONSHOT_API_KEY = os.getenv("MOONSHOT_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
