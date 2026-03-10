@@ -24,7 +24,7 @@ Idea → AI Story → AI Voice → AI Images → Subtitles → Final Video
 
 V-Content Creator automates the **entire** video production pipeline:
 
-1. **📝 Story Generation** — AI writes viral stories with hooks, escalation, and twists (Gemini or Moonshot/Kimi)
+1. **📝 Story Generation** — AI writes viral stories with hooks, escalation, and twists (**100+ Models via LiteLLM**: Gemini, OpenAI, DeepSeek, Claude, etc.)
 2. **🎙️ Voice Narration** — Natural TTS voice (Gemini TTS or ElevenLabs). **Includes a free 100% fallback to Edge TTS** (no API key needed!)
 3. **🖼️ Scene Images** — AI-generated images synced to the narration (SDXL local GPU or Gemini Web)
 4. **📝 Subtitles** — Automatic transcription with faster-whisper
@@ -177,7 +177,7 @@ python uploader.py
 | `--voice NAME` | TTS voice: Charon, Fenrir, Kore, Orus, etc. |
 | `--quality LEVEL` | Video quality: high, medium, low, minimal |
 | `--short` | Short format (9:16 vertical, ≤60s) |
-| `--model ENGINE` | Text model: gemini (default) or kimi |
+| `--model ENGINE` | Text model via LiteLLM (e.g. `gemini/gemini-2.5-flash`, `openai/gpt-4o`, `deepseek/deepseek-chat`) |
 | `--eleven` | Use ElevenLabs TTS instead of Gemini |
 | `--gemini-images` | Use Gemini Web for image generation |
 | `--gemini-web-story` | Use Gemini Web for story generation |

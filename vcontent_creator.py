@@ -22,6 +22,7 @@ import urllib.request
 import shutil
 import re
 from datetime import datetime
+import litellm
 
 # Fix Windows console encoding for emoji
 import io
@@ -48,10 +49,10 @@ MOONSHOT_API_KEY = os.getenv("MOONSHOT_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Validate required keys
-if not GEMINI_API_KEY and not MOONSHOT_API_KEY:
+if not GEMINI_API_KEY and not MOONSHOT_API_KEY and not os.getenv("OPENAI_API_KEY") and not os.getenv("DEEPSEEK_API_KEY") and not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("GROQ_API_KEY"):
     print("❌ ERROR: No API keys configured!")
     print("   Copy .env.example to .env and add your API keys.")
-    print("   You need at least GEMINI_API_KEY or MOONSHOT_API_KEY.")
+    print("   You need at least one text provider key (GEMINI, OPENAI, DEEPSEEK, etc.).")
     sys.exit(1)
 
 # Channel Configuration (customize in .env)
@@ -60,22 +61,14 @@ VIDEO_PREFIX = os.getenv("VIDEO_PREFIX", "video")
 DEFAULT_TAGS = os.getenv("DEFAULT_TAGS", "stories,narration,storytime").split(",")
 
 
-# Modelo de texto por defecto (gemini o kimi)
-TEXT_MODEL = "gemini"
+# Modelo de texto por defecto (usando sintaxis LiteLLM, ej: gemini/gemini-2.5-flash)
+TEXT_MODEL = "gemini/gemini-pro"
 
 # Motor TTS por defecto (gemini o eleven)
 TTS_ENGINE = "gemini"  # Opciones: "gemini" o "kimi"
 
 # Motor de imágenes por defecto (sdxl o gemini_web)
 IMAGE_ENGINE = "sdxl"  # Opciones: "sdxl" (GPU local) o "gemini_web" (Playwright browser)
-
-# Configuración Gemini Texto
-GEMINI_TEXT_MODEL = "gemini-3.1-pro-preview"
-GEMINI_TEXT_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_TEXT_MODEL}:generateContent"
-
-# Configuración Moonshot (Kimi)
-MOONSHOT_API_URL = "https://api.moonshot.ai/v1/chat/completions"
-MOONSHOT_MODEL = "kimi-latest"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SISTEMA DE NICHOS DE CONTENIDO VIRAL
@@ -289,93 +282,29 @@ _ip_adapter_ok = False
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# GEMINI TEXT API
+# LITELLM TEXT API
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def gemini_call(prompt, max_tokens=8000, temp=0.95):
-    """Llama a Gemini para generación de texto."""
-    url = f"{GEMINI_TEXT_URL}?key={GEMINI_API_KEY}"
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": temp,
-            "maxOutputTokens": max_tokens,
-        }
-    }
-    # Solo desactivar thinking para modelos Flash (Pro no soporta thinkingBudget: 0)
-    if "flash" in GEMINI_TEXT_MODEL.lower():
-        payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
-    
-    try:
-        req = urllib.request.Request(
-            url, data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"}
-        )
-        print(f"  ✨ Llamando a Gemini ({GEMINI_TEXT_MODEL})...")
-        timeout = 300 if "pro" in GEMINI_TEXT_MODEL.lower() else 120
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read().decode())
-            if 'candidates' in data and data['candidates']:
-                return data['candidates'][0]['content']['parts'][0]['text'].strip()
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8', errors='ignore')
-        print(f"⚠️ Error Gemini texto HTTP {e.code}: {error_body[:300]}")
-    except Exception as e:
-        print(f"⚠️ Error Gemini texto: {e}")
-    return None
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# MOONSHOT API (Kimi) - Alternativa
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def moonshot_call(prompt, max_tokens=4000, temperature=0.9):
+def generate_text_litellm(prompt, model=TEXT_MODEL, max_tokens=4000, temperature=0.95):
     """
-    Llama a Moonshot API (Kimi) y devuelve el texto generado.
-    Compatible con el formato de respuesta esperado por el parser.
+    Llama a cualquier modelo soportado por LiteLLM (OpenAI, Gemini, DeepSeek, Claude, etc).
+    Las API keys se cargan automáticamente desde el entorno.
     """
-    if MOONSHOT_API_KEY.startswith("sk-XXXX"):
-        print("❌ ERROR: Debes configurar tu MOONSHOT_API_KEY en la línea 29")
-        return None
-    
-    payload = {
-        "model": MOONSHOT_MODEL,
-        "messages": [
-            {"role": "system", "content": "Eres un escritor de relatos creativo y cinematográfico. Sigues instrucciones de formato al pie de la letra."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": temperature,
-        "max_tokens": max_tokens
-    }
-    
+    print(f"  🧠 Llamando a LLM ({model}) via LiteLLM...")
     try:
-        req = urllib.request.Request(
-            MOONSHOT_API_URL,
-            data=json.dumps(payload).encode('utf-8'),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {MOONSHOT_API_KEY}"
-            }
+        response = litellm.completion(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Eres un escritor de relatos creativo y cinematográfico. Sigues instrucciones de formato al pie de la letra."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=120
         )
-        
-        print(f"  🌙 Llamando a Moonshot ({MOONSHOT_MODEL})...")
-        
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-            
-            if 'choices' in data and len(data['choices']) > 0:
-                content = data['choices'][0]['message']['content'].strip()
-                return content
-            else:
-                print(f"⚠️ Respuesta inesperada de Moonshot: {data}")
-                return None
-                
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8')
-        print(f"⚠️ Error HTTP Moonshot: {e.code} - {error_body}")
-        return None
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        print(f"⚠️ Error llamando Moonshot: {e}")
+        print(f"⚠️ Error en LiteLLM ({model}): {e}")
         return None
 
 
@@ -476,9 +405,7 @@ EMPIEZA DIRECTAMENTE con ===HISTORIA 1===, sin texto previo ni explicaciones."""
 
     # Seleccionar API según TEXT_MODEL
     chat_url_for_images = None
-    if TEXT_MODEL == "kimi":
-        response = moonshot_call(prompt, max_tokens=4000, temperature=0.95)
-    elif TEXT_MODEL == "gemini_web":
+    if TEXT_MODEL == "gemini_web":
         try:
             browser_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "BROWSER VERSION")
             if browser_dir not in sys.path:
@@ -490,7 +417,8 @@ EMPIEZA DIRECTAMENTE con ===HISTORIA 1===, sin texto previo ni explicaciones."""
             print(f"⚠️ Error generando historia en Gemini Web: {e}")
             response = None
     else:
-        response = gemini_call(prompt, max_tokens=8000, temp=0.95)
+        # Usar LiteLLM para manejar a cualquier proveedor
+        response = generate_text_litellm(prompt, model=TEXT_MODEL, max_tokens=5000, temperature=0.95)
     
     if not response:
         return []
@@ -1602,8 +1530,8 @@ def main():
     parser.add_argument("--voice", type=str, default=None, help="Voz TTS (Charon, Fenrir, Kore, Orus)")
     parser.add_argument("--quality", type=str, default="high", choices=["high", "medium", "low", "minimal"])
     parser.add_argument("--short", action="store_true", help="Modo Short (9:16 vertical, ≤60s)")
-    parser.add_argument("--model", type=str, default="gemini", choices=["gemini", "kimi"],
-                        help="Modelo de texto: gemini (default) o kimi")
+    parser.add_argument("--model", type=str, default="gemini/gemini-2.5-flash",
+                        help="Modelo de texto LiteLLM (ej: gemini/gemini-2.5-flash, openai/gpt-4o, deepseek/deepseek-chat)")
     parser.add_argument("--niche", type=str, default=None,
                         help=f"Nicho de contenido. Opciones: {niche_list}. Si no se especifica, se elige uno al azar.")
     parser.add_argument("--list-niches", action="store_true", help="Muestra los nichos disponibles y sale")
@@ -1657,12 +1585,10 @@ def main():
         print(f"❌ Nicho '{args.niche}' no existe. Usa --list-niches para ver opciones.")
         sys.exit(1)
     
-    if TEXT_MODEL == "gemini":
-        model_label = f"Gemini ({GEMINI_TEXT_MODEL})"
-    elif TEXT_MODEL == "kimi":
-        model_label = "Moonshot (Kimi)"
-    else:
+    if TEXT_MODEL == "gemini_web":
         model_label = "Gemini Web (Playwright)"
+    else:
+        model_label = f"LiteLLM ({TEXT_MODEL})"
     tts_label = "ElevenLabs" if TTS_ENGINE == "eleven" else f"Gemini TTS ({GEMINI_TTS_VOICE})"
     img_engine_label = "Gemini Web (Playwright)" if IMAGE_ENGINE == "gemini_web" else "SDXL Local"
     print(f"\n🎬 VIRAL CONTENT FACTORY v2.0")
