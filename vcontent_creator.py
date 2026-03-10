@@ -639,6 +639,15 @@ EMPIEZA DIRECTAMENTE con ===HISTORIA 1===, sin texto previo ni explicaciones."""
                             'file': f"{sfx_name}{ext}"
                         })
                         break
+                else:
+                    print(f"    ⚠️ SFX '{sfx_name}' no encontrado en sounds/ (ignorado)")
+
+        if sfx_cues:
+            print(f"  🎵 SFX detectados: {len(sfx_cues)}")
+            for cue in sfx_cues:
+                print(f"     🔊 {cue['timestamp']} → {cue['file']}")
+        elif sfx_part:
+            print(f"  ⚠️ La IA pidió SFX pero ningún archivo coincide en sounds/")
 
         if declared_count:
             print(f"  🖼️  Kimi eligió {declared_count} imágenes, se encontraron {len(img_data)} prompts")
@@ -1154,7 +1163,7 @@ def mix_audio_sfx(main_audio_path, sfx_cues):
         idx = i + 1
         delay_ms = int(cue['seconds'] * 1000)
         # Bajar el volumen de los SFX para no ahogar la voz y retrasarlos al segundo exacto
-        filter_complex += f"[{idx}:a]volume=0.4,adelay={delay_ms}|{delay_ms}[sfx{idx}]; "
+        filter_complex += f"[{idx}:a]volume=0.7,adelay={delay_ms}|{delay_ms}[sfx{idx}]; "
         mix_inputs += f"[sfx{idx}]"
         
     filter_complex += f"{mix_inputs}amix=inputs={len(sfx_cues)+1}:duration=first:dropout_transition=0:normalize=0[aout]"
@@ -1167,8 +1176,12 @@ def mix_audio_sfx(main_audio_path, sfx_cues):
     ])
     
     try:
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        print(f"  ✅ Audio mezclado con SFX: {os.path.basename(output_path)}")
         return output_path
+    except subprocess.CalledProcessError as e:
+        print(f"    ⚠️ Error mezclando SFX (FFmpeg): {e.stderr.decode('utf-8', errors='ignore')[:200]}")
+        return main_audio_path
     except Exception as e:
         print(f"    ⚠️ Error mezclando SFX: {e}")
         return main_audio_path
