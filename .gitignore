@@ -1,0 +1,31 @@
+# Environment & Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# SDXL Models (too large for git, 5-7GB each)
+stable-diffusion-webui-master/
+
+# Generated content
+output/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Playwright browser cache
+playwright-browsers/

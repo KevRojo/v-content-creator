@@ -1,0 +1,25 @@
+# ═══════════════════════════════════════════════════════════════
+# V-Content Creator — Dependencies
+# ═══════════════════════════════════════════════════════════════
+
+# Core (required)
+python-dotenv>=1.0.0
+Pillow>=10.0.0
+faster-whisper>=1.0.0
+
+# GUI (optional — only needed for gui.py)
+PyQt5>=5.15.0
+
+# Local image generation with SDXL (optional — needs NVIDIA GPU)
+# torch>=2.0.0
+# diffusers>=0.25.0
+# transformers>=4.30.0
+# accelerate>=0.25.0
+
+# Gemini Web image generation (optional — alternative to SDXL)
+# playwright>=1.40.0
+
+# YouTube upload (optional)
+# google-auth>=2.0.0
+# google-auth-oauthlib>=1.0.0
+# google-api-python-client>=2.0.0
