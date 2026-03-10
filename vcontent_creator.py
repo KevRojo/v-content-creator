@@ -410,6 +410,19 @@ def generate_text_litellm(prompt, model=TEXT_MODEL, max_tokens=4000, temperature
         print(f"⚠️ Error en LiteLLM ({model}): {e}")
         return None
 
+def parse_timestamp_to_seconds(timestamp_str):
+    """Convierte '0:25' o '1:30' a segundos (25, 90)"""
+    try:
+        parts = timestamp_str.strip().split(':')
+        if len(parts) == 2:
+            minutes = int(parts[0])
+            seconds = int(parts[1])
+            return minutes * 60 + seconds
+        elif len(parts) == 1:
+            return int(parts[0])
+    except:
+        pass
+    return None
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GENERACIÓN DE HISTORIAS (Igual que el original, pero con Moonshot)
@@ -1110,10 +1123,6 @@ def generate_image_sd(prompt, output_path, reference_image=None):
         print(f"  ⚠️ Error imagen: {e}")
         traceback.print_exc()
         return False
-
-    except:
-        pass
-    return None
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # AUDIO MIXING (SFX)
