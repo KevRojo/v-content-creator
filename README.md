@@ -224,3 +224,7 @@ Pull requests welcome! Areas that could use help:
 - Multi-language support
 - Thumbnail generation
 - Auto-upload to YouTube/TikTok
+
+Donations:
+
+Bitcoin: 1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN
