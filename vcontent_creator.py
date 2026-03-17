@@ -540,9 +540,7 @@ EMPIEZA DIRECTAMENTE con ===HISTORIA 1===, sin texto previo ni explicaciones."""
     chat_url_for_images = None
     if TEXT_MODEL == "gemini_web":
         try:
-            browser_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "BROWSER VERSION")
-            if browser_dir not in sys.path:
-                sys.path.insert(0, browser_dir)
+            # gemini_image_gen.py is in the same directory
             from gemini_image_gen import generate_story_web
             
             response, chat_url_for_images = generate_story_web(prompt)
@@ -1649,8 +1647,8 @@ def create_creepypasta(num_stories=1, context=None, duration_min=None, niche_nam
                             print(f"  ⚠️ Error resize img {j+1}: {e}")
 
             except ImportError:
-                print("❌ No se encontró gemini_image_gen.py en BROWSER VERSION/")
-                print("   Asegúrate de que existe: BROWSER VERSION/gemini_image_gen.py")
+                print("❌ No se encontró gemini_image_gen.py")
+                print("   Asegúrate de que existe: gemini_image_gen.py")
                 continue
             except Exception as e:
                 print(f"❌ Error con Gemini Web imágenes: {e}")
