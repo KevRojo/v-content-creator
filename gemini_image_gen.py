@@ -53,7 +53,7 @@ def log(msg, emoji="▸"):
 
 
 def _create_gemini_browser(playwright, headless=False):
-    """Crea un contexto de Playwright con perfil dedicado para Gemini."""
+    """Crea un contexto de Playwright con perfil dedicado para Gemini (stealth mode)."""
     log("Abriendo Chrome con perfil Gemini...", "🌐")
     log(f"Perfil: {PW_GEMINI_PROFILE}", "📂")
 
@@ -61,21 +61,37 @@ def _create_gemini_browser(playwright, headless=False):
         user_data_dir=PW_GEMINI_PROFILE,
         channel="chrome",
         headless=headless,
+        ignore_default_args=["--enable-automation"],  # Critical: removes automation flag
         args=[
             "--no-sandbox",
             "--disable-blink-features=AutomationControlled",
             "--no-first-run",
             "--no-default-browser-check",
+            "--disable-infobars",
+            "--disable-extensions",
+            "--disable-popup-blocking",
+            "--disable-component-update",
             "--window-size=1400,900",
         ],
         viewport={"width": 1400, "height": 900},
         timeout=60000,
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     )
 
     if ctx.pages:
         page = ctx.pages[0]
     else:
         page = ctx.new_page()
+
+    # Remove webdriver property from navigator to avoid detection
+    page.add_init_script("""
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        // Remove CDP artifacts
+        if (window.chrome) {
+            window.chrome.csi = function(){};
+            window.chrome.loadTimes = function(){};
+        }
+    """)
 
     return ctx, page
 

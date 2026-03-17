@@ -1494,6 +1494,38 @@ def create_creepypasta(num_stories=1, context=None, duration_min=None, niche_nam
         print(f"   🎯 Nicho: AUTO (selección aleatoria viral)")
     print("=" * 60)
 
+    # ── First-run Gemini Web login check ──
+    if TEXT_MODEL == "gemini_web" or IMAGE_ENGINE == "gemini_web":
+        pw_profile = os.path.join(os.path.expanduser("~"), ".playwright-youtube")
+        # Check if profile has never been created or has no cookies
+        needs_login = not os.path.isdir(pw_profile) or not os.listdir(pw_profile)
+        
+        if needs_login:
+            print("\n" + "═"*60)
+            print("🌐 PRIMERA VEZ — Necesitas loguearte en Gemini Web")
+            print("═"*60)
+            print("  Se abrirá Chrome para que te loguees con tu")
+            print("  cuenta de Google (la que tiene Gemini Premium).")
+            print("  La sesión se guarda automáticamente para futuras ejecuciones.\n")
+            
+            resp = input("  ¿Abrir Chrome para loguearte ahora? (S/n): ").strip().lower()
+            if resp in ("", "s", "si", "sí", "y", "yes"):
+                try:
+                    from gemini_image_gen import verify_login_interactive
+                    verify_login_interactive()
+                    print("\n  ✅ Login completado. Continuando con la generación...\n")
+                except ImportError:
+                    print("  ❌ No se encontró gemini_image_gen.py")
+                    return False
+                except Exception as e:
+                    print(f"  ⚠️ Error durante login: {e}")
+                    cont = input("  ¿Intentar continuar de todos modos? (s/N): ").strip().lower()
+                    if cont not in ("s", "si", "sí", "y", "yes"):
+                        return False
+            else:
+                print("  ⚠️ Sin login, Gemini Web no funcionará.")
+                return False
+
     global SDXL_MODEL_PATH
     if IMAGE_ENGINE != "gemini_web":
         SDXL_MODEL_PATH = get_best_sdxl_model()
