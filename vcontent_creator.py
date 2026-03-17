@@ -63,47 +63,59 @@ available_keys = {
 available_keys = {k: v for k, v in available_keys.items() if v}
 
 # Validate required keys / Interactive Onboarding
-if not available_keys:
+# Skip if user is running in Gemini Web mode (no API keys needed)
+_using_gemini_web = "--gemini-web-story" in sys.argv
+
+if not available_keys and not _using_gemini_web:
     print("\n" + "="*60)
     print("👋 ¡BIENVENIDO A V-CONTENT CREATOR!")
     print("="*60)
     print("Parece que es tu primera vez y no tienes ninguna API Key configurada.")
-    print("LiteLLM soporta +100 modelos diferentes. Selecciona uno para empezar:\n")
-    print(" Ejemplos recomendados:")
+    print("Tienes 2 opciones:\n")
+    print(" 🌐 OPCIÓN GRATUITA: Usa --gemini-web-story para generar historias")
+    print("    sin API Key via tu cuenta de Gemini con Playwright.\n")
+    print(" 🔑 OPCIÓN API: Configura un modelo de LiteLLM (+100 disponibles):")
     print("   • gemini/gemini-2.5-flash")
     print("   • openai/gpt-4o")
     print("   • deepseek/deepseek-chat")
     print("   • anthropic/claude-3-5-sonnet-20240620\n")
     
-    user_model = input("👉 ¿Qué modelo quieres usar? (Copia un ejemplo o escribe el tuyo): ").strip()
-    if not user_model:
+    user_model = input("👉 ¿Qué modelo quieres usar? (o escribe 'web' para Gemini Web): ").strip()
+    
+    if user_model.lower() == 'web':
+        _using_gemini_web = True
+        DEFAULT_TEXT_MODEL = "gemini_web"
+    elif not user_model:
         print("❌ Operación cancelada. El script requiere un modelo de texto.")
         sys.exit(1)
+    else:
+        provider = user_model.split('/')[0].upper() if '/' in user_model else user_model.upper()
+        api_key_name = f"{provider}_API_KEY"
         
-    provider = user_model.split('/')[0].upper() if '/' in user_model else user_model.upper()
-    api_key_name = f"{provider}_API_KEY"
-    
-    user_key = input(f"🔑 Pega tu {api_key_name} (se guardará de forma segura en .env): ").strip()
-    if not user_key:
-        print("❌ Operación cancelada. Se necesita una API Key para funcionar.")
-        sys.exit(1)
-        
-    # Guardar en .env
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-    try:
-        with open(env_path, "a") as f:
-            f.write(f"\n{api_key_name}={user_key}\n")
-        print(f"\n✅ ¡Éxito! Tu {api_key_name} ha sido guardada.")
-        
-        # Load immediately
-        os.environ[api_key_name] = user_key
-        available_keys[api_key_name] = user_key
-    except Exception as e:
-        print(f"⚠️ No se pudo guardar en .env: {e}")
-        
-    # Forzar el modelo por defecto en base a lo que eligió el usuario
-    DEFAULT_TEXT_MODEL = user_model
-else:
+        user_key = input(f"🔑 Pega tu {api_key_name} (se guardará de forma segura en .env): ").strip()
+        if not user_key:
+            print("❌ Operación cancelada. Se necesita una API Key para funcionar.")
+            sys.exit(1)
+            
+        # Guardar en .env
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+        try:
+            with open(env_path, "a") as f:
+                f.write(f"\n{api_key_name}={user_key}\n")
+            print(f"\n✅ ¡Éxito! Tu {api_key_name} ha sido guardada.")
+            
+            # Load immediately
+            os.environ[api_key_name] = user_key
+            available_keys[api_key_name] = user_key
+        except Exception as e:
+            print(f"⚠️ No se pudo guardar en .env: {e}")
+            
+        # Forzar el modelo por defecto en base a lo que eligió el usuario
+        DEFAULT_TEXT_MODEL = user_model
+
+if _using_gemini_web and not available_keys:
+    DEFAULT_TEXT_MODEL = "gemini_web"
+elif available_keys:
     # Auto-pick the first available model based on keys
     first_key = list(available_keys.keys())[0]
     if first_key == "OPENAI_API_KEY":
